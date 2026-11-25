@@ -1,0 +1,581 @@
+/* personal/non-commercial use only per the Penelope Free Trial EULA -- local
+   files only, never hosted/redistributed from this project */
+@font-face {
+  font-family: 'Penelope';
+  src: url('fonts/Penelope-Regular.woff2') format('woff2'),
+       url('fonts/Penelope-Regular.woff') format('woff'),
+       url('fonts/Penelope-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* variable font (single file, weight axis) -- the range lets the existing
+   font-weight:400/500 declarations elsewhere actually pick a real instance
+   instead of all collapsing onto whatever the file's default weight is */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('fonts/Satoshi-Variable.ttf') format('truetype-variations');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* --ink/--paper are now PERMANENT, constant colors for the dial/satellite
+     faces (off-white face, dark ink/lines/text) -- there is no more dark-
+     intro/light-main crossfade, since the page background itself never
+     brightens anymore (see --page-bg). */
+  --ink: #111111;
+  --paper: #F2F1EC;
+  /* the page background, and anything sitting DIRECTLY on it rather than on
+     an off-white dial/satellite face (corner meta text, back/prev/next UI,
+     the project detail page) -- kept as two separate variables since these
+     two "layers" never share a color now. */
+  --page-bg: #0B0B0B;
+  --on-bg: #F2F1EC;
+  /* everything except the small center circle's text (see --center-face)
+     uses Satoshi now -- tick/scale numbers, SELECTED WORKS, project names,
+     corner meta text, project-page copy, all of it */
+  --mono: 'Satoshi', 'IBM Plex Mono', monospace;
+  --sans: 'Satoshi', 'Pretendard', -apple-system, sans-serif;
+  --center-face: 'Penelope', 'Pretendard', -apple-system, sans-serif;
+  --back-face: 'Inter', -apple-system, sans-serif;
+  --back-grey: #E4E3DE;
+  --back-paper: #F7F6F2;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--page-bg);
+  color: var(--on-bg);
+  touch-action: none;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---------- corner meta text ---------- */
+
+.meta {
+  position: fixed;
+  z-index: 5;
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-bg);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.meta-tl { top: 24px; left: 24px; }
+.meta-tr { top: 24px; right: 24px; }
+.meta-bl { bottom: 24px; left: 24px; font-variant-numeric: tabular-nums; }
+.meta-br { bottom: 24px; right: 24px; font-variant-numeric: tabular-nums; }
+
+/* hidden until the intro finishes (or is skipped), then fades in -- see
+   finishIntro()/skipIntro() in main.js */
+.meta { opacity: 0; transition: opacity 0.3s ease; }
+.meta.visible { opacity: 1; }
+
+@media (max-width: 700px) {
+  .meta { font-size: 10px; }
+  .meta-tl, .meta-tr { top: 16px; }
+  .meta-bl, .meta-br { bottom: 16px; }
+  .meta-tl, .meta-bl { left: 16px; }
+  .meta-tr, .meta-br { right: 16px; }
+}
+
+/* ---------- camera / world ----------
+   the camera is just a single translate+scale on #world, computed every
+   frame in main.js from whatever world-space point the camera is currently
+   centered on (dial center, or a satellite). #dialStage and each #satellite
+   are plain fixed-size (1000 world-unit) boxes positioned once in world
+   space and never touched again -- only #world's own transform moves. */
+
+.camera-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+.world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none; /* re-enabled on .dial-stage itself below */
+}
+
+/* ---------- dial ---------- */
+
+.dial-stage {
+  position: absolute;
+  left: -500px;
+  top: -500px;
+  width: 1000px;
+  height: 1000px;
+  cursor: grab;
+  pointer-events: auto;
+}
+.dial-stage.grabbing { cursor: grabbing; }
+
+/* ---------- satellite (surrounding project) circles ---------- */
+
+.satellites { position: absolute; left: 0; top: 0; }
+
+/* intro-only blob/metaball canvas -- position/size are set in JS (world
+   units, like everything else in #world), hidden once the intro reveal
+   finishes and the real dial/satellite content has faded in underneath */
+.intro-canvas { position: absolute; pointer-events: none; }
+
+/* ---------- center dial "version B" (sphere/orbit alternate view) --------
+   a zero-size anchor at world origin (0,0 == the dial's own center), so any
+   child positioned purely via `transform: translate(x,y)` lands exactly in
+   the same world-space coordinate system dialStage/satellites already use.
+   The canvas and this wrapper are pointer-events:none -- only the
+   individual .sphere-label boxes opt back in -- so a click/drag/double-
+   click anywhere else in this area falls straight through to #dialStage
+   underneath, completely unaffected by whichever version happens to be
+   drawn on top of it. ---------- */
+.center-v2 {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.center-v2-canvas {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+.center-v2-labels {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.sphere-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  box-sizing: border-box;
+  background: #FFFFFF;
+  border: 1px solid #111111;
+  color: #111111;
+  font-family: var(--center-face);
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+  will-change: transform;
+}
+.sphere-label.hovered { background: #111111; color: #FFFFFF; }
+.sphere-label.behind { opacity: 0.35; }
+
+/* one-line hover/tap description under a sphere label -- split into a
+   position-only outer wrapper (JS updates its transform every single
+   frame, so it carries no transition of its own) and this inner element,
+   whose opacity/translateY transition only ever reacts to `.visible`
+   toggling. transition-duration is set inline per direction (0.18s in,
+   0.12s out) since a single CSS rule can't express two different
+   durations for the same property depending on which way it's going. */
+.sphere-desc-pos {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.sphere-desc {
+  font-family: 'Satoshi', var(--sans);
+  font-weight: 400;
+  font-size: 15px;
+  color: #111111;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.sphere-desc.visible { opacity: 1; transform: translateY(0); }
+.satellite {
+  position: absolute;
+  width: 1000px;
+  height: 1000px;
+  /* clickable now (stage-2 trigger: click the arrived-at circle to open its
+     detail page) -- gating on WHICH clicks actually do anything lives in
+     JS (globalPhase/focusedSatIndex), not here; at any camera position
+     where a satellite isn't actually what's on screen, nothing is
+     effectively clickable anyway since this is about screen hit-testing. */
+  pointer-events: auto;
+  cursor: pointer;
+}
+/* the face (border+background) only -- always fully opaque, never
+   crossfaded. .sat-content (its one child, see main.js) is the thing whose
+   own opacity actually fades in during the intro's rotation-reveal, so the
+   circle's #F2F1EC face never itself dims/grays mid-transition. */
+.sat-circle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sat-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.sat-num {
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+.sat-name {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 90px; /* ~9% of the circle's own diameter (1000 world units) */
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.05;
+  max-width: 86%;
+}
+.sat-period, .sat-category {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.sat-view {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-top: 10px;
+}
+
+/* ---------- 3-layer exploded-view scene ---------- */
+
+/* flip (front/back) sits OUTSIDE the explode scene -- rotateY on this wrapper,
+   independent of whatever rotateX/scale the explode effect is doing inside it */
+.flip-stage {
+  position: absolute;
+  inset: 0;
+  perspective: 4000px;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.flip-stage > .explode-scene { backface-visibility: hidden; }
+.back-face {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg); /* pre-rotated so it faces the viewer once the
+                                  parent .flip-stage itself reaches 180deg */
+  backface-visibility: hidden;
+}
+
+.explode-scene {
+  position: absolute;
+  inset: 0;
+  perspective: 4000px;
+  transform-style: preserve-3d;
+}
+.layer-group {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.guide-lines {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+.guide-line {
+  position: absolute;
+  width: 0;
+  /* these dashed lines appear in the GAPS between exploded layers, where
+     the dark page background now shows through (it no longer brightens to
+     a light "main" theme) -- so they need --on-bg, not --ink, to stay
+     visible there. */
+  border-left: 0.75px dashed var(--on-bg);
+  transform-origin: top center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- satellite-view UI: BACK button + PREV/NEXT, all sit directly
+   on the dark page background (not on any off-white face), visible only
+   while idle at a satellite with no project page open -- toggled via JS
+   (.visible class) rather than a fixed display, so the opacity transition
+   applies. ---------- */
+
+.back-btn {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 6;
+  background: none;
+  border: 1px solid var(--on-bg);
+  color: var(--on-bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.back-btn.visible { opacity: 1; pointer-events: auto; }
+.back-btn:hover { background: var(--on-bg); color: var(--page-bg); }
+
+.sat-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  background: none;
+  border: none;
+  color: var(--on-bg);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 10px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.sat-nav.visible { opacity: 1; pointer-events: auto; }
+.sat-nav:hover { text-decoration: underline; }
+.sat-nav-prev { left: 3%; }
+.sat-nav-next { right: 3%; }
+
+.layer-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  position: absolute;
+  inset: 0;
+}
+
+.layer-svg text {
+  font-family: var(--mono);
+  fill: var(--ink);
+  user-select: none;
+}
+.layer-svg .num-label { font-size: 13px; }
+.layer-svg .num-label-mini { font-size: 10px; }
+.layer-svg .proj-num { font-size: 11px; }
+.layer-svg .proj-title {
+  font-family: var(--sans);
+  text-transform: uppercase;
+}
+
+/* small center circle content -- same center-face (Penelope) as before,
+   just a different set of rows now (big PORTFOLIO title + 3 plain lines
+   below it, none of them uppercased -- their casing is typed exactly as
+   given, unlike the old all-caps desc/credit lines). */
+.layer-svg .inner-title {
+  font-family: var(--center-face);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.layer-svg .inner-subtitle { font-family: var(--sans); font-weight: 400; }
+.layer-svg .inner-meta { font-family: var(--sans); font-weight: 600; }
+.layer-svg .inner-name { font-family: var(--sans); font-weight: 400; }
+
+/* version A/B flip (see CENTER VERSION B in main.js): a scaleX-only pseudo-
+   flip, not a real 3D rotateY -- pivoting around the SVG viewBox's own
+   center (500,500 user units, which IS this dial's CX/CY) rather than
+   whatever default origin the browser would otherwise pick for an SVG
+   element's CSS transform. */
+#centerContent { transform-box: view-box; transform-origin: 500px 500px; }
+
+/* back face (CD-label layout) -- all Inter, all ink-black */
+.layer-svg .back-title { font-family: var(--back-face); font-style: italic; text-decoration: underline; }
+.layer-svg .back-num-label { font-family: var(--back-face); font-size: 6px; }
+.layer-svg .back-num { font-family: var(--back-face); font-size: 30px; }
+.layer-svg .back-name { font-family: var(--back-face); font-size: 34px; }
+.layer-svg .back-inner-arc { font-family: var(--back-face); font-size: 10px; }
+.layer-svg .back-edge { font-family: var(--back-face); font-size: 7px; }
+
+/* non-scaling-stroke keeps line weight constant even as the explode scene's
+   overall scale(0.82) (and each layer's own tilt) shrinks the rendered SVGs --
+   without it, every stroke would visibly thin out while exploded */
+.layer-svg .stroke-main { stroke: var(--ink); stroke-width: 1px; fill: none; vector-effect: non-scaling-stroke; }
+.layer-svg .stroke-sub { stroke: var(--ink); stroke-width: 0.75px; fill: none; vector-effect: non-scaling-stroke; }
+.layer-svg .stroke-dashed { stroke: var(--ink); stroke-width: 0.75px; fill: none; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+.layer-svg .dot { fill: var(--ink); stroke: none; }
+
+/* invisible hit zone -- same geometry the visible box used to occupy, now
+   just a transparent click/tap/hover target with no fill or stroke of its
+   own (the box itself was deleted per spec) */
+.layer-svg .proj-window {
+  fill: transparent;
+  stroke: none;
+  cursor: pointer;
+}
+/* text/underline sit visually on top of .proj-window at the exact same
+   radius -- without pointer-events:none here, clicking directly on a
+   glyph (the only visible target now that the box is gone) hits THIS
+   element instead, and e.target.closest('.proj-window') fails to find it
+   since they're siblings, not ancestor/descendant -- silently swallowing
+   the click. Real bug, found when the user reported clicking project
+   names did nothing. */
+.layer-svg .proj-title { fill: var(--ink); font-weight: 500; transition: font-weight 0.2s ease; pointer-events: none; }
+.layer-svg .proj-title.selected { font-weight: 700; }
+.layer-svg .proj-num { fill: var(--ink); font-weight: 400; transition: font-weight 0.2s ease; pointer-events: none; }
+.layer-svg .proj-num.selected { font-weight: 700; }
+
+/* hover/selected feedback now that there's no box to invert: a 1px
+   underline along the title's own arc, fading in/out */
+.layer-svg .proj-underline {
+  stroke: var(--ink);
+  stroke-width: 1px;
+  fill: none;
+  opacity: 0;
+  vector-effect: non-scaling-stroke;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.layer-svg .proj-underline.selected { opacity: 1; }
+
+/* ---------- project page ---------- */
+
+.project-page {
+  position: fixed;
+  inset: 0;
+  background: var(--page-bg);
+  color: var(--on-bg);
+  z-index: 10;
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.project-page.visible { opacity: 1; }
+.project-page[hidden] { display: none; }
+
+.close-btn {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 11;
+  background: none;
+  border: 1px solid var(--on-bg);
+  color: var(--on-bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.close-btn:hover { background: var(--on-bg); color: var(--page-bg); }
+
+.project-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 100px 80px 120px 80px;
+}
+
+.proj-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 48px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.proj-head-title {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: clamp(40px, 7vw, 110px);
+  line-height: 1.0;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.proj-head-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-align: right;
+}
+.proj-head-meta div + div { margin-top: 4px; }
+
+.proj-media {
+  width: 100%;
+  aspect-ratio: 14 / 9;
+  border: 1px solid var(--on-bg);
+  box-sizing: border-box;
+  margin-top: 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proj-media:first-of-type { margin-top: 0; }
+.proj-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.proj-media .proj-media-num {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--on-bg);
+}
+
+.proj-desc {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.8;
+  margin: 48px 0 0 0;
+  max-width: 640px;
+}
+
+.proj-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 96px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+.proj-nav button {
+  background: none;
+  border: none;
+  color: var(--on-bg);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.proj-nav button:hover { text-decoration: underline; }
+
+@media (max-width: 700px) {
+  .project-inner { padding: 90px 24px 100px 24px; }
+  .proj-head { flex-direction: column; align-items: flex-start; }
+  .proj-head-meta { text-align: left; }
+}
