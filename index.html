@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>NEW PORTFOLIO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;1,400&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<!-- sphere-label hover/tap description text (version B only) -- Fontshare's
+     hosted Satoshi, requested specifically for that one element; the
+     project's own local Satoshi-Variable.ttf (--sans) already covers
+     everything else and stays untouched -->
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="meta meta-tl">NEW PORTFOLIO</div>
+  <div class="meta meta-tr">KWAG SO YUN</div>
+  <div class="meta meta-bl" id="angleReadout">SELECT A WORK</div>
+  <div class="meta meta-br" id="selectReadout">&mdash; / 06</div>
+
+  <button class="back-btn" id="backBtn" type="button">&larr; BACK</button>
+  <button class="sat-nav sat-nav-prev" id="satPrevBtn" type="button">&lsaquo; PREV</button>
+  <button class="sat-nav sat-nav-next" id="satNextBtn" type="button">NEXT &rsaquo;</button>
+
+  <div class="camera-viewport" id="cameraViewport">
+    <div class="world" id="world">
+      <div class="dial-stage" id="dialStage">
+        <div class="flip-stage" id="flipStage">
+          <div class="explode-scene" id="explodeScene">
+            <div class="layer-group" id="layerGroup1">
+              <svg id="svgLayer1" class="layer-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+                <g id="layer1Bg"></g>
+                <g id="bezelFixed"></g>
+                <g id="rotor"></g>
+              </svg>
+            </div>
+            <div class="layer-group" id="layerGroup2">
+              <svg id="svgLayer2" class="layer-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+                <g id="layer2Bg"></g>
+                <g id="layer2Fixed"></g>
+              </svg>
+            </div>
+            <div class="layer-group" id="layerGroup3">
+              <svg id="svgLayer3" class="layer-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+                <g id="layer3Bg"></g>
+                <g id="centerFixed"></g>
+              </svg>
+            </div>
+            <div class="guide-lines" id="guideLines"></div>
+          </div>
+          <div class="back-face" id="backFace">
+            <svg id="svgBack" class="layer-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+              <g id="backFixed"></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="center-v2" id="centerV2">
+        <canvas class="center-v2-canvas" id="centerV2Canvas"></canvas>
+        <div class="center-v2-labels" id="centerV2Labels"></div>
+      </div>
+      <div class="satellites" id="satellites"></div>
+      <canvas class="intro-canvas" id="introCanvas"></canvas>
+    </div>
+  </div>
+
+  <main class="project-page" id="projectPage" hidden>
+    <button class="close-btn" id="closeBtn" type="button">CLOSE</button>
+    <div class="project-inner" id="projectInner"></div>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>
